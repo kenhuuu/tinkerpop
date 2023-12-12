@@ -18,12 +18,15 @@
  */
 package org.apache.tinkerpop.gremlin.driver.handler;
 
-import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.EmptyByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageDecoder;
 import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.util.CharsetUtil;
 import org.apache.tinkerpop.gremlin.util.MessageSerializer;
 import org.apache.tinkerpop.gremlin.util.Tokens;
 import org.apache.tinkerpop.gremlin.util.message.ResponseMessage;
@@ -39,7 +42,7 @@ import java.util.UUID;
  * Converts {@code HttpResponse} to a {@link ResponseMessage}.
  */
 @ChannelHandler.Sharable
-public final class HttpGremlinResponseDecoder extends MessageToMessageDecoder<FullHttpResponse> {
+public final class HttpGremlinResponseDecoder extends MessageToMessageDecoder<HttpContent> {
     private final MessageSerializer<?> serializer;
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -48,9 +51,11 @@ public final class HttpGremlinResponseDecoder extends MessageToMessageDecoder<Fu
     }
 
     @Override
-    protected void decode(final ChannelHandlerContext channelHandlerContext, final FullHttpResponse httpResponse, final List<Object> objects) throws Exception {
+    protected void decode(final ChannelHandlerContext channelHandlerContext, final HttpContent content, final List<Object> objects) throws Exception {
         if (httpResponse.status() == HttpResponseStatus.OK) {
-            objects.add(serializer.deserializeResponse(httpResponse.content()));
+            for (ResponseMessage msg = serializer.deserializeResponse(content.content()); msg != null; msg = serializer.deserializeResponse(Unpooled.buffer(0))) {
+            objects.add(msg);
+            }
         } else {
             final JsonNode root = mapper.readTree(new ByteBufInputStream(httpResponse.content()));
             objects.add(ResponseMessage.build(UUID.fromString(root.get(Tokens.REQUEST_ID).asText()))
