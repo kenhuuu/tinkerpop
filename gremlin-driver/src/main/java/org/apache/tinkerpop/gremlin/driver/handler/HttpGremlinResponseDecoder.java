@@ -20,6 +20,8 @@ package org.apache.tinkerpop.gremlin.driver.handler;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.EmptyByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageDecoder;
@@ -30,6 +32,8 @@ import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2HeadersFrame;
 import io.netty.handler.codec.http2.Http2StreamFrame;
 import io.netty.util.AsciiString;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.util.CharsetUtil;
 import org.apache.tinkerpop.gremlin.util.MessageSerializer;
 import org.apache.tinkerpop.gremlin.util.Tokens;
 import org.apache.tinkerpop.gremlin.util.message.ResponseMessage;
@@ -70,7 +74,12 @@ public final class HttpGremlinResponseDecoder extends MessageToMessageDecoder<Ht
         } else if (frame instanceof Http2DataFrame) {
             ByteBuf body = ((Http2DataFrame) frame).content();
             if (!hasError) {
-                objects.add(serializer.deserializeResponse(body));
+                for (ResponseMessage msg = serializer.deserializeResponse(content.content());
+                        msg != null;
+                        msg = serializer.deserializeResponse(Unpooled.buffer(0))) {
+
+                    objects.add(msg);
+                }
             } else {
                 final JsonNode root = mapper.readTree(new ByteBufInputStream(body));
                 objects.add(ResponseMessage.build(UUID.fromString(root.get(Tokens.REQUEST_ID).asText()))
@@ -78,6 +87,4 @@ public final class HttpGremlinResponseDecoder extends MessageToMessageDecoder<Ht
                         .statusMessage(root.get(SerTokens.TOKEN_MESSAGE).asText())
                         .create());
             }
-        }
-    }
 }
