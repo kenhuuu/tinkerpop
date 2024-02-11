@@ -71,20 +71,11 @@ final class Connection {
     public static final int RESULT_ITERATION_BATCH_SIZE = 64;
     public static final long KEEP_ALIVE_INTERVAL = 180000;
     public final static long CONNECTION_SETUP_TIMEOUT_MILLIS = 15000;
-
-    /**
-     * When a {@code Connection} is borrowed from the pool, this number is incremented to indicate the number of
-     * times it has been taken and is decremented when it is returned.  This number is one indication as to how
-     * busy a particular {@code Connection} is.
-     */
-    public final AtomicInteger borrowed = new AtomicInteger(0);
     /**
      * This boolean guards the replace of the connection and ensures that it only occurs once.
      */
     public final AtomicBoolean isBeingReplaced = new AtomicBoolean(false);
     private final AtomicReference<Class<Channelizer>> channelizerClass = new AtomicReference<>(null);
-
-    private final int maxInProcess;
 
     private final String connectionLabel;
 
@@ -93,12 +84,13 @@ final class Connection {
     private final AtomicReference<CompletableFuture<Void>> closeFuture = new AtomicReference<>();
     private final AtomicBoolean shutdownInitiated = new AtomicBoolean(false);
 
+    private boolean isActive;
+
     public Connection(final URI uri, final ConnectionPool pool, final int maxInProcess) throws ConnectionException {
         this.uri = uri;
         this.cluster = pool.getCluster();
         this.client = pool.getClient();
         this.pool = pool;
-        this.maxInProcess = maxInProcess;
         this.creatingThread = Thread.currentThread().getName();
         this.createdTimestamp = Instant.now().toString();
         connectionLabel = "Connection{host=" + pool.host + "}";
@@ -142,16 +134,6 @@ final class Connection {
         } catch (Exception ex) {
             throw new ConnectionException(uri, "Could not open " + getConnectionInfo(true), ex);
         }
-    }
-
-    /**
-     * A connection can only have so many things in process happening on it at once, where "in process" refers to
-     * the maximum number of in-process requests less the number of pending responses.
-     */
-    public int availableInProcess() {
-        // no need for a negative available amount - not sure that the pending size can ever exceed maximum, but
-        // better to avoid the negatives that would ensue if it did
-        return Math.max(0, maxInProcess - pending.size());
     }
 
     /**
@@ -392,10 +374,10 @@ final class Connection {
      */
     public String getConnectionInfo(final boolean showHost) {
         return showHost ?
-                String.format("Connection{channel=%s host=%s isDead=%s borrowed=%s pending=%s markedReplaced=%s closing=%s created=%s thread=%s}",
-                        getChannelId(), pool.host.toString(), isDead(), this.borrowed.get(), getPending().size(), this.isBeingReplaced, isClosing(), createdTimestamp, creatingThread) :
-                String.format("Connection{channel=%s isDead=%s borrowed=%s pending=%s markedReplaced=%s closing=%s created=%s thread=%s}",
-                        getChannelId(), isDead(), this.borrowed.get(), getPending().size(), this.isBeingReplaced, isClosing(), createdTimestamp, creatingThread);
+                String.format("Connection{channel=%s host=%s isDead=%s pending=%s markedReplaced=%s closing=%s created=%s thread=%s}",
+                        getChannelId(), pool.host.toString(), isDead(),  getPending().size(), this.isBeingReplaced, isClosing(), createdTimestamp, creatingThread) :
+                String.format("Connection{channel=%s isDead=%s pending=%s markedReplaced=%s closing=%s created=%s thread=%s}",
+                        getChannelId(), isDead(), getPending().size(), this.isBeingReplaced, isClosing(), createdTimestamp, creatingThread);
     }
 
     /**

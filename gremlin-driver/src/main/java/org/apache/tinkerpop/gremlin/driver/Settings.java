@@ -218,12 +218,6 @@ final class Settings {
             if (connectionPoolConf.containsKey("maxSize"))
                 cpSettings.maxSize = connectionPoolConf.getInt("maxSize");
 
-            if (connectionPoolConf.containsKey("minSimultaneousUsagePerConnection"))
-                cpSettings.minSimultaneousUsagePerConnection = connectionPoolConf.getInt("minSimultaneousUsagePerConnection");
-
-            if (connectionPoolConf.containsKey("maxSimultaneousUsagePerConnection"))
-                cpSettings.maxSimultaneousUsagePerConnection = connectionPoolConf.getInt("maxSimultaneousUsagePerConnection");
-
             if (connectionPoolConf.containsKey("maxInProcessPerConnection"))
                 cpSettings.maxInProcessPerConnection = connectionPoolConf.getInt("maxInProcessPerConnection");
 
@@ -338,18 +332,6 @@ final class Settings {
         public long keepAliveInterval = Connection.KEEP_ALIVE_INTERVAL;
 
         /**
-         * A connection under low use can be destroyed. This setting determines the threshold for determining when
-         * that connection can be released and is defaulted to 8.
-         */
-        public int minSimultaneousUsagePerConnection = ConnectionPool.MIN_SIMULTANEOUS_USAGE_PER_CONNECTION;
-
-        /**
-         * If a connection is over used, then it might mean that is necessary to expand the pool by adding a new
-         * connection.  This setting determines the threshold for a connections over use and is defaulted to 16
-         */
-        public int maxSimultaneousUsagePerConnection = ConnectionPool.MAX_SIMULTANEOUS_USAGE_PER_CONNECTION;
-
-        /**
          * The maximum number of requests in flight on a connection where the default is 4.
          */
         public int maxInProcessPerConnection = Connection.MAX_IN_PROCESS;
@@ -395,10 +377,9 @@ final class Settings {
 
         /**
          * The constructor for the channel that connects to the server. This value should be the fully qualified
-         * class name of a Gremlin Driver {@link Channelizer} implementation.  By default this value is set to
-         * {@link Channelizer.WebSocketChannelizer}.
+         * class name of a Gremlin Driver {@link Channelizer} implementation.
          */
-        public String channelizer = Channelizer.WebSocketChannelizer.class.getName();
+        public String channelizer = Channelizer.HttpChannelizer.class.getName();
 
         /**
          * A valid Gremlin script that can be used to test remote operations.

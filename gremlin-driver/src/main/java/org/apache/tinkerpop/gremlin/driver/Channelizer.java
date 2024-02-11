@@ -152,100 +152,100 @@ public interface Channelizer extends ChannelHandler {
     /**
      * WebSocket {@link Channelizer} implementation.
      */
-    public final class WebSocketChannelizer extends AbstractChannelizer {
-        private static final Logger logger = LoggerFactory.getLogger(WebSocketChannelizer.class);
-        private WebSocketClientHandler handler;
-
-        private WebSocketGremlinRequestEncoder gremlinRequestEncoder;
-        private WebSocketGremlinResponseDecoder gremlinResponseDecoder;
-
-        @Override
-        public void init(final Connection connection) {
-            super.init(connection);
-            gremlinRequestEncoder = new WebSocketGremlinRequestEncoder(true, cluster.getSerializer());
-            gremlinResponseDecoder = new WebSocketGremlinResponseDecoder(cluster.getSerializer());
-        }
-
-        /**
-         * Sends a {@code CloseWebSocketFrame} to the server for the specified channel.
-         */
-        @Override
-        public void close(final Channel channel) {
-            if (channel.isOpen()) {
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Sending CloseWS frame to server from channel={}", channel.id().asShortText());
-                }
-                channel.writeAndFlush(new CloseWebSocketFrame());
-            }
-        }
-
-        @Override
-        public boolean supportsSsl() {
-            final String scheme = connection.getUri().getScheme();
-            return "wss".equalsIgnoreCase(scheme);
-        }
-
-        @Override
-        public void configure(final ChannelPipeline pipeline) {
-            final String scheme = connection.getUri().getScheme();
-            if (!"ws".equalsIgnoreCase(scheme) && !"wss".equalsIgnoreCase(scheme))
-                throw new IllegalStateException("Unsupported scheme (only ws: or wss: supported): " + scheme);
-
-            if (!supportsSsl() && "wss".equalsIgnoreCase(scheme))
-                throw new IllegalStateException("To use wss scheme ensure that enableSsl is set to true in configuration");
-
-            final int maxContentLength = cluster.connectionPoolSettings().maxContentLength;
-            final HttpHeaders httpHeaders = new DefaultHttpHeaders();
-            if(connection.getCluster().isUserAgentOnConnectEnabled()) {
-                httpHeaders.set(UserAgent.USER_AGENT_HEADER_NAME, UserAgent.USER_AGENT);
-            }
-            handler = new WebSocketClientHandler(
-                    new WebSocketClientHandler.InterceptedWebSocketClientHandshaker13(
-                            connection.getUri(), WebSocketVersion.V13, null, true,
-                            httpHeaders, maxContentLength, true, false, -1,
-                            cluster.getRequestInterceptor()), cluster.getConnectionSetupTimeout(), supportsSsl());
-
-            final int keepAliveInterval = toIntExact(TimeUnit.SECONDS.convert(
-                    cluster.connectionPoolSettings().keepAliveInterval, TimeUnit.MILLISECONDS));
-
-            pipeline.addLast("http-codec", new HttpClientCodec());
-            pipeline.addLast("aggregator", new HttpObjectAggregator(maxContentLength));
-            // Add compression extension for WebSocket defined in https://tools.ietf.org/html/rfc7692
-            pipeline.addLast(WebSocketClientCompressionHandler.INSTANCE);
-            pipeline.addLast("idle-state-Handler", new IdleStateHandler(0, keepAliveInterval, 0));
-            pipeline.addLast("ws-handler", handler);
-            pipeline.addLast("gremlin-encoder", gremlinRequestEncoder);
-            pipeline.addLast("gremlin-decoder", gremlinResponseDecoder);
-        }
-
-        @Override
-        public void connected() {
-            try {
-                // Block until the handshake is complete either successfully or with an error. The handshake future
-                // will complete with a timeout exception after some time so it is guaranteed that this future will
-                // complete.
-                // If future completed with an exception more than likely, SSL is enabled on the server, but the client
-                // forgot to enable it or perhaps the server is not configured for websockets.
-                handler.handshakeFuture().sync();
-            } catch (Exception ex) {
-                String errMsg = "";
-                if (ex instanceof TimeoutException) {
-                    errMsg = "Timed out while waiting to complete the connection setup. Consider increasing the " +
-                            "WebSocket handshake timeout duration.";
-                } else {
-                    errMsg = "Could not complete connection setup to the server. Ensure that SSL is correctly " +
-                            "configured at both the client and the server. Ensure that client WebSocket handshake " +
-                            "protocol matches the server. Ensure that the server is still reachable.";
-                }
-                throw new ConnectionException(connection.getUri(), errMsg, ex);
-            }
-        }
-
-        @Override
-        public String getScheme(boolean sslEnabled) {
-            return sslEnabled ? "wss" : "ws";
-        }
-    }
+//    public final class WebSocketChannelizer extends AbstractChannelizer {
+//        private static final Logger logger = LoggerFactory.getLogger(WebSocketChannelizer.class);
+//        private WebSocketClientHandler handler;
+//
+//        private WebSocketGremlinRequestEncoder gremlinRequestEncoder;
+//        private WebSocketGremlinResponseDecoder gremlinResponseDecoder;
+//
+//        @Override
+//        public void init(final Connection connection) {
+//            super.init(connection);
+//            gremlinRequestEncoder = new WebSocketGremlinRequestEncoder(true, cluster.getSerializer());
+//            gremlinResponseDecoder = new WebSocketGremlinResponseDecoder(cluster.getSerializer());
+//        }
+//
+//        /**
+//         * Sends a {@code CloseWebSocketFrame} to the server for the specified channel.
+//         */
+//        @Override
+//        public void close(final Channel channel) {
+//            if (channel.isOpen()) {
+//                if (logger.isDebugEnabled()) {
+//                    logger.debug("Sending CloseWS frame to server from channel={}", channel.id().asShortText());
+//                }
+//                channel.writeAndFlush(new CloseWebSocketFrame());
+//            }
+//        }
+//
+//        @Override
+//        public boolean supportsSsl() {
+//            final String scheme = connection.getUri().getScheme();
+//            return "wss".equalsIgnoreCase(scheme);
+//        }
+//
+//        @Override
+//        public void configure(final ChannelPipeline pipeline) {
+//            final String scheme = connection.getUri().getScheme();
+//            if (!"ws".equalsIgnoreCase(scheme) && !"wss".equalsIgnoreCase(scheme))
+//                throw new IllegalStateException("Unsupported scheme (only ws: or wss: supported): " + scheme);
+//
+//            if (!supportsSsl() && "wss".equalsIgnoreCase(scheme))
+//                throw new IllegalStateException("To use wss scheme ensure that enableSsl is set to true in configuration");
+//
+//            final int maxContentLength = cluster.connectionPoolSettings().maxContentLength;
+//            final HttpHeaders httpHeaders = new DefaultHttpHeaders();
+//            if(connection.getCluster().isUserAgentOnConnectEnabled()) {
+//                httpHeaders.set(UserAgent.USER_AGENT_HEADER_NAME, UserAgent.USER_AGENT);
+//            }
+//            handler = new WebSocketClientHandler(
+//                    new WebSocketClientHandler.InterceptedWebSocketClientHandshaker13(
+//                            connection.getUri(), WebSocketVersion.V13, null, true,
+//                            httpHeaders, maxContentLength, true, false, -1,
+//                            cluster.getRequestInterceptor()), cluster.getConnectionSetupTimeout(), supportsSsl());
+//
+//            final int keepAliveInterval = toIntExact(TimeUnit.SECONDS.convert(
+//                    cluster.connectionPoolSettings().keepAliveInterval, TimeUnit.MILLISECONDS));
+//
+//            pipeline.addLast("http-codec", new HttpClientCodec());
+//            pipeline.addLast("aggregator", new HttpObjectAggregator(maxContentLength));
+//            // Add compression extension for WebSocket defined in https://tools.ietf.org/html/rfc7692
+//            pipeline.addLast(WebSocketClientCompressionHandler.INSTANCE);
+//            pipeline.addLast("idle-state-Handler", new IdleStateHandler(0, keepAliveInterval, 0));
+//            pipeline.addLast("ws-handler", handler);
+//            pipeline.addLast("gremlin-encoder", gremlinRequestEncoder);
+//            pipeline.addLast("gremlin-decoder", gremlinResponseDecoder);
+//        }
+//
+//        @Override
+//        public void connected() {
+//            try {
+//                // Block until the handshake is complete either successfully or with an error. The handshake future
+//                // will complete with a timeout exception after some time so it is guaranteed that this future will
+//                // complete.
+//                // If future completed with an exception more than likely, SSL is enabled on the server, but the client
+//                // forgot to enable it or perhaps the server is not configured for websockets.
+//                handler.handshakeFuture().sync();
+//            } catch (Exception ex) {
+//                String errMsg = "";
+//                if (ex instanceof TimeoutException) {
+//                    errMsg = "Timed out while waiting to complete the connection setup. Consider increasing the " +
+//                            "WebSocket handshake timeout duration.";
+//                } else {
+//                    errMsg = "Could not complete connection setup to the server. Ensure that SSL is correctly " +
+//                            "configured at both the client and the server. Ensure that client WebSocket handshake " +
+//                            "protocol matches the server. Ensure that the server is still reachable.";
+//                }
+//                throw new ConnectionException(connection.getUri(), errMsg, ex);
+//            }
+//        }
+//
+//        @Override
+//        public String getScheme(boolean sslEnabled) {
+//            return sslEnabled ? "wss" : "ws";
+//        }
+//    }
 
     /**
      * Sends requests over the HTTP endpoint. Client functionality is governed by the limitations of the HTTP endpoint,

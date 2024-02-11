@@ -157,7 +157,6 @@ public class ProfilingApplication {
         final int maxWaitForConnection = Integer.parseInt(options.getOrDefault("maxWaitForConnection", "3000").toString());
         final int workerPoolSize = Integer.parseInt(options.getOrDefault("workerPoolSize", "2").toString());
         final int tooSlowThreshold = Integer.parseInt(options.getOrDefault("tooSlowThreshold", "125").toString());
-        final String channelizer = options.getOrDefault("channelizer", Channelizer.WebSocketChannelizer.class.getName()).toString();
         final String serializer = options.getOrDefault("serializer", Serializers.GRAPHBINARY_V1.name()).toString();
 
         final boolean exercise = Boolean.parseBoolean(options.getOrDefault("exercise", "false").toString());
@@ -166,12 +165,9 @@ public class ProfilingApplication {
         final Cluster cluster = Cluster.build(host)
                 .minConnectionPoolSize(minConnectionPoolSize)
                 .maxConnectionPoolSize(maxConnectionPoolSize)
-                .minSimultaneousUsagePerConnection(minSimultaneousUsagePerConnection)
-                .maxSimultaneousUsagePerConnection(maxSimultaneousUsagePerConnection)
                 .minInProcessPerConnection(minInProcessPerConnection)
                 .maxInProcessPerConnection(maxInProcessPerConnection)
                 .nioPoolSize(nioPoolSize)
-                .channelizer(channelizer)
                 .maxWaitForConnection(maxWaitForConnection)
                 .serializer(Serializers.valueOf(serializer))
                 .workerPoolSize(workerPoolSize).create();
