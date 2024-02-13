@@ -18,12 +18,25 @@
  */
 package org.apache.tinkerpop.gremlin.server.channel;
 
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.HttpClientUpgradeHandler;
+import io.netty.handler.codec.http.HttpMessage;
+import io.netty.handler.codec.http.HttpServerUpgradeHandler;
+import io.netty.handler.codec.http2.Http2CodecUtil;
+import io.netty.handler.codec.http2.Http2FrameCodec;
+import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
+import io.netty.handler.codec.http2.Http2MultiplexHandler;
+import io.netty.handler.codec.http2.Http2ServerUpgradeCodec;
+import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.util.AsciiString;
 import org.apache.tinkerpop.gremlin.server.AbstractChannelizer;
 import org.apache.tinkerpop.gremlin.server.Channelizer;
 import org.apache.tinkerpop.gremlin.server.Settings;
 import org.apache.tinkerpop.gremlin.server.auth.AllowAllAuthenticator;
 import org.apache.tinkerpop.gremlin.server.handler.AbstractAuthenticationHandler;
+import org.apache.tinkerpop.gremlin.server.handler.GremlinHttp2Handler;
 import org.apache.tinkerpop.gremlin.server.handler.HttpBasicAuthenticationHandler;
 import org.apache.tinkerpop.gremlin.server.handler.HttpBasicAuthorizationHandler;
 import org.apache.tinkerpop.gremlin.server.handler.HttpUserAgentHandler;
@@ -43,14 +56,33 @@ import org.slf4j.LoggerFactory;
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
 public class HttpChannelizer extends AbstractChannelizer {
+    public class GremlinHttp2UpgradeFactory implements HttpServerUpgradeHandler.UpgradeCodecFactory {
+
+        GremlinHttp2Handler handler;
+
+        public GremlinHttp2UpgradeFactory(GremlinHttp2Handler http2Handler) {
+            handler = http2Handler;
+        }
+        @Override
+        public HttpServerUpgradeHandler.UpgradeCodec newUpgradeCodec(CharSequence protocol) {
+            if (AsciiString.contentEquals(Http2CodecUtil.HTTP_UPGRADE_PROTOCOL_NAME, protocol)) {
+                return new Http2ServerUpgradeCodec(Http2FrameCodecBuilder.forServer().build(),
+                                                   new Http2MultiplexHandler(handler));
+            } else {
+                return null;
+            }
+        }
+    };
+
     private static final Logger logger = LoggerFactory.getLogger(HttpChannelizer.class);
 
-    private HttpGremlinEndpointHandler httpGremlinEndpointHandler;
+    private GremlinHttp2Handler http2Handler;
 
     @Override
     public void init(final ServerGremlinExecutor serverGremlinExecutor) {
         super.init(serverGremlinExecutor);
-        httpGremlinEndpointHandler = new HttpGremlinEndpointHandler(serializers, gremlinExecutor, graphManager, settings);
+//        http2Handler = new GremlinHttp2HandlerBuilder().build(serializers, gremlinExecutor, graphManager, settings);
+        http2Handler = new GremlinHttp2Handler(serializers, gremlinExecutor, graphManager, settings);
     }
 
     @Override
@@ -58,14 +90,15 @@ public class HttpChannelizer extends AbstractChannelizer {
         if (logger.isDebugEnabled())
             pipeline.addLast(new LoggingHandler("log-io", LogLevel.DEBUG));
 
-        pipeline.addLast("http-server", new HttpServerCodec());
+//        HttpServerCodec httpCodec = new HttpServerCodec();
+//        pipeline.addLast("http-server", httpCodec);
 
-        if (logger.isDebugEnabled())
-            pipeline.addLast(new LoggingHandler("http-io", LogLevel.DEBUG));
+//        if (logger.isDebugEnabled())
+//            pipeline.addLast(new LoggingHandler("http-io", LogLevel.DEBUG));
 
-        final HttpObjectAggregator aggregator = new HttpObjectAggregator(settings.maxContentLength);
-        aggregator.setMaxCumulationBufferComponents(settings.maxAccumulationBufferComponents);
-        pipeline.addLast(PIPELINE_HTTP_AGGREGATOR, aggregator);
+//        final HttpObjectAggregator aggregator = new HttpObjectAggregator(settings.maxContentLength);
+//        aggregator.setMaxCumulationBufferComponents(settings.maxAccumulationBufferComponents);
+//        pipeline.addLast(PIPELINE_HTTP_AGGREGATOR, aggregator);
 
         if (authenticator != null) {
             // Cannot add the same handler instance multiple times unless
@@ -83,8 +116,18 @@ public class HttpChannelizer extends AbstractChannelizer {
             pipeline.addLast(PIPELINE_AUTHORIZER, authorizationHandler);
         }
 
-        pipeline.addLast("http-user-agent-handler", new HttpUserAgentHandler());
-        pipeline.addLast("http-gremlin-handler", httpGremlinEndpointHandler);
+//        pipeline.addLast("http-user-agent-handler", new HttpUserAgentHandler());
+//        pipeline.addLast("http-gremlin-handler", http2Handler);
+//        pipeline.addLast("h2c-upgrade-handler", new HttpServerUpgradeHandler(httpCodec, new GremlinHttp2UpgradeFactory(http2Handler)));
+        pipeline.addLast("http2-server-codec", Http2FrameCodecBuilder.forServer().build());
+        pipeline.addLast("htt2-multiplex-handler", new Http2MultiplexHandler(http2Handler));
+        pipeline.addLast(new SimpleChannelInboundHandler<HttpMessage>() {
+
+            @Override
+            protected void channelRead0(ChannelHandlerContext ctx, HttpMessage msg) throws Exception {
+                System.out.println("=================================================== SOMETHING WENT WRONG ===================================================");
+            }
+        });
         // Note that channelRead()'s do not propagate down the pipeline past HttpGremlinEndpointHandler
     }
 
