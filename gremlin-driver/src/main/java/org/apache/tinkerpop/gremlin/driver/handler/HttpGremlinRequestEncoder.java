@@ -27,6 +27,10 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http2.DefaultHttp2DataFrame;
+import io.netty.handler.codec.http2.DefaultHttp2Headers;
+import io.netty.handler.codec.http2.DefaultHttp2HeadersFrame;
+import io.netty.handler.codec.http2.Http2Headers;
 import org.apache.tinkerpop.gremlin.driver.UserAgent;
 import org.apache.tinkerpop.gremlin.driver.exception.ResponseException;
 import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
@@ -74,14 +78,24 @@ public final class HttpGremlinRequestEncoder extends MessageToMessageEncoder<Req
 
         try {
             final ByteBuf buffer = serializer.serializeRequestAsBinary(requestMessage, channelHandlerContext.alloc());
-            final FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, "/", buffer);
-            request.headers().add(HttpHeaderNames.CONTENT_TYPE, mimeType);
-            request.headers().add(HttpHeaderNames.CONTENT_LENGTH, buffer.readableBytes());
-            request.headers().add(HttpHeaderNames.ACCEPT, mimeType);
-            if (userAgentEnabled) {
-                request.headers().add(HttpHeaderNames.USER_AGENT, UserAgent.USER_AGENT);
-            }
-            objects.add(interceptor.apply(request));
+
+            Http2Headers headers = new DefaultHttp2Headers().add(HttpHeaderNames.CONTENT_TYPE, mimeType)
+                    .add(HttpHeaderNames.CONTENT_LENGTH, String.valueOf(buffer.readableBytes()))
+                    .add(HttpHeaderNames.ACCEPT, mimeType)
+                    .add(HttpHeaderNames.USER_AGENT, UserAgent.USER_AGENT)
+                    .method(HttpMethod.POST.asciiName())
+                    .path("/");
+            objects.add(new DefaultHttp2HeadersFrame(headers));
+            objects.add(new DefaultHttp2DataFrame(buffer, true));
+
+//            final FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, "/", buffer);
+//            request.headers().add(HttpHeaderNames.CONTENT_TYPE, mimeType);
+//            request.headers().add(HttpHeaderNames.CONTENT_LENGTH, buffer.readableBytes());
+//            request.headers().add(HttpHeaderNames.ACCEPT, mimeType);
+//            if (userAgentEnabled) {
+//                request.headers().add(HttpHeaderNames.USER_AGENT, UserAgent.USER_AGENT);
+//            }
+//            objects.add(interceptor.apply(request));
         } catch (Exception ex) {
             throw new ResponseException(ResponseStatusCode.REQUEST_ERROR_SERIALIZATION, String.format(
                     "An error occurred during serialization of this request [%s] - it could not be sent to the server - Reason: %s",

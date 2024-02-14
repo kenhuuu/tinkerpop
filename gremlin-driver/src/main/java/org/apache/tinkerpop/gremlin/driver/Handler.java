@@ -18,6 +18,7 @@
  */
 package org.apache.tinkerpop.gremlin.driver;
 
+import io.netty.channel.ChannelHandler;
 import io.netty.util.AttributeMap;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.tinkerpop.gremlin.driver.exception.ResponseException;
@@ -198,6 +199,7 @@ final class Handler {
      * Takes a map of requests pending responses and writes responses to the {@link ResultQueue} of a request
      * as the {@link ResponseMessage} objects are deserialized.
      */
+    @ChannelHandler.Sharable
     static class GremlinResponseHandler extends SimpleChannelInboundHandler<ResponseMessage> {
         private static final Logger logger = LoggerFactory.getLogger(GremlinResponseHandler.class);
         private final ConcurrentMap<UUID, ResultQueue> pending;

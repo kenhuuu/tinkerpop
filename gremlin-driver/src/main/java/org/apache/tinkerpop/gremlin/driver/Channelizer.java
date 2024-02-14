@@ -18,6 +18,31 @@
  */
 package org.apache.tinkerpop.gremlin.driver;
 
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.DefaultFullHttpRequest;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpClientUpgradeHandler;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http2.DefaultHttp2Connection;
+import io.netty.handler.codec.http2.DelegatingDecompressorFrameListener;
+import io.netty.handler.codec.http2.Http2ClientUpgradeCodec;
+import io.netty.handler.codec.http2.Http2Connection;
+import io.netty.handler.codec.http2.Http2ConnectionHandler;
+import io.netty.handler.codec.http2.Http2FrameCodec;
+import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
+import io.netty.handler.codec.http2.Http2MultiplexHandler;
+import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.handler.codec.http2.Http2StreamFrame;
+import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandler;
+import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandlerBuilder;
+import io.netty.handler.codec.http2.InboundHttp2ToHttpAdapterBuilder;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 import org.apache.tinkerpop.gremlin.driver.exception.ConnectionException;
 import org.apache.tinkerpop.gremlin.driver.handler.HttpGremlinRequestEncoder;
 import org.apache.tinkerpop.gremlin.driver.handler.HttpGremlinResponseDecoder;
@@ -134,6 +159,8 @@ public interface Channelizer extends ChannelHandler {
                 sslCtx = Optional.empty();
             }
 
+//            pipeline.addLast(new LoggingHandler("logging-handler", LogLevel.DEBUG));
+
             if (sslCtx.isPresent()) {
                 final SslHandler sslHandler = sslCtx.get().newHandler(socketChannel.alloc(), connection.getUri().getHost(), connection.getUri().getPort());
                 // TINKERPOP-2814. Remove the SSL handshake timeout so that handshakes that take longer than 10000ms
@@ -143,10 +170,50 @@ public interface Channelizer extends ChannelHandler {
                 pipeline.addLast(PIPELINE_SSL_HANDLER, sslHandler);
             }
 
-            configure(pipeline);
-            pipeline.addLast(PIPELINE_GREMLIN_SASL_HANDLER, new Handler.GremlinSaslAuthenticationHandler(cluster.authProperties()));
-            pipeline.addLast(PIPELINE_GREMLIN_HANDLER, new Handler.GremlinResponseHandler(pending));
+//            configure(pipeline);
+//            pipeline.addLast(PIPELINE_GREMLIN_SASL_HANDLER, new Handler.GremlinSaslAuthenticationHandler(cluster.authProperties()));
+//            pipeline.addLast(PIPELINE_GREMLIN_HANDLER, new Handler.GremlinResponseHandler(pending));
+
+//            HttpClientCodec httpCodec = new HttpClientCodec();
+            Http2FrameCodec http2Codec = Http2FrameCodecBuilder.forClient().initialSettings(Http2Settings.defaultSettings()).build();
+            Http2MultiplexHandler multiplexer = new Http2MultiplexHandler(new SimpleChannelInboundHandler() {
+                @Override
+                protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
+                    // Do nothing as server shouldn't start stream.
+                }
+            });
+
+//            final Http2Connection cxn = new DefaultHttp2Connection(false);
+//            Http2ClientUpgradeCodec http2UpgradeCodec = new Http2ClientUpgradeCodec(new HttpToHttp2ConnectionHandlerBuilder()
+//                    .frameListener(
+//                        new DelegatingDecompressorFrameListener(
+//                                cxn,
+//                                new InboundHttp2ToHttpAdapterBuilder(cxn)
+//                                        .maxContentLength(65536)
+//                                        .propagateSettings(true)
+//                                        .build()))
+//                        .connection(cxn)
+//                        .build());
+//            HttpClientUpgradeHandler upgradeHandler = new HttpClientUpgradeHandler(httpCodec, http2UpgradeCodec, 65536);
+
+//            pipeline.addLast("http-codec", httpCodec);
+//            pipeline.addLast("http2-upgrade-handler", upgradeHandler);
+//            pipeline.addLast("http2-upgrade-requester-handler", new UpgraderRequesterHandler());
+            pipeline.addLast("http2-codec", http2Codec);
+            pipeline.addLast("http2-handler", multiplexer);
         }
+    }
+
+    public final class UpgraderRequesterHandler extends ChannelInboundHandlerAdapter {
+
+        @Override
+        public void channelActive(ChannelHandlerContext ctx) {
+            final FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/", Unpooled.EMPTY_BUFFER);
+            ctx.writeAndFlush(request);
+//            ctx.fireChannelActive(); was causing weird bytes to be sent
+            ctx.pipeline().remove(this);
+        }
+
     }
 
     /**
@@ -251,7 +318,7 @@ public interface Channelizer extends ChannelHandler {
      * Sends requests over the HTTP endpoint. Client functionality is governed by the limitations of the HTTP endpoint,
      * meaning that sessions are not available and as such {@code tx()} (i.e. transactions) are not available over this
      * channelizer. Only sessionless requests are possible. Some driver configuration options may not be relevant when
-     * using HTTP, such as {@link Tokens#ARGS_BATCH_SIZE} since HTTP does not stream results back in that fashion.
+     * using HTTP,  since HTTP does not stream results back in that fashion.
      */
     public final class HttpChannelizer extends AbstractChannelizer {
 

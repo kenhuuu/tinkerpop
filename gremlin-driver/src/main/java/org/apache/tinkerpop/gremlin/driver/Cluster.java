@@ -597,7 +597,7 @@ public final class Cluster {
         private int reconnectInterval = Connection.RECONNECT_INTERVAL;
         private int resultIterationBatchSize = Connection.RESULT_ITERATION_BATCH_SIZE;
         private long keepAliveInterval = Connection.KEEP_ALIVE_INTERVAL;
-        private String channelizer = Channelizer.WebSocketChannelizer.class.getName();
+        private String channelizer = Channelizer.HttpChannelizer.class.getName();
         private boolean enableSsl = false;
         private String keyStore = null;
         private String keyStorePassword = null;

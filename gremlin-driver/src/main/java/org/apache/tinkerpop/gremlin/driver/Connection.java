@@ -18,6 +18,13 @@
  */
 package org.apache.tinkerpop.gremlin.driver;
 
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
+import io.netty.handler.codec.http2.Http2StreamChannel;
+import io.netty.handler.codec.http2.Http2StreamChannelBootstrap;
+import org.apache.tinkerpop.gremlin.driver.handler.HttpGremlinRequestEncoder;
+import org.apache.tinkerpop.gremlin.driver.handler.HttpGremlinResponseDecoder;
 import org.apache.tinkerpop.gremlin.util.Tokens;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +60,8 @@ final class Connection {
     private static final Logger logger = LoggerFactory.getLogger(Connection.class);
 
     private final Channel channel;
+
+    private Http2StreamChannelBootstrap streamBootstrap;
     private final URI uri;
     private final ConcurrentMap<UUID, ResultQueue> pending = new ConcurrentHashMap<>();
     private final Cluster cluster;
@@ -71,6 +80,10 @@ final class Connection {
     public static final int RESULT_ITERATION_BATCH_SIZE = 64;
     public static final long KEEP_ALIVE_INTERVAL = 180000;
     public final static long CONNECTION_SETUP_TIMEOUT_MILLIS = 15000;
+
+    private HttpGremlinResponseDecoder gremlinResponseDecoder;
+
+    private HttpGremlinRequestEncoder gremlinRequestEncoder;
 
     /**
      * When a {@code Connection} is borrowed from the pool, this number is incremented to indicate the number of
@@ -101,6 +114,8 @@ final class Connection {
         this.maxInProcess = maxInProcess;
         this.creatingThread = Thread.currentThread().getName();
         this.createdTimestamp = Instant.now().toString();
+        gremlinRequestEncoder = new HttpGremlinRequestEncoder(cluster.getSerializer(), cluster.getRequestInterceptor(), cluster.isUserAgentOnConnectEnabled());
+        gremlinResponseDecoder = new HttpGremlinResponseDecoder(cluster.getSerializer());
         connectionLabel = "Connection{host=" + pool.host + "}";
 
         if (cluster.isClosing())
@@ -139,6 +154,9 @@ final class Connection {
             });
 
             logger.info("Created new connection for {}", uri);
+
+            streamBootstrap = new Http2StreamChannelBootstrap(channel).handler(new StreamChannelizer(gremlinRequestEncoder, gremlinResponseDecoder, new Handler.GremlinResponseHandler(pending)));
+
         } catch (Exception ex) {
             throw new ConnectionException(uri, "Could not open " + getConnectionInfo(true), ex);
         }
@@ -218,7 +236,12 @@ final class Connection {
         // the promise so that the client knows that that it can start checking for results.
         final Connection thisConnection = this;
 
-        final ChannelPromise requestPromise = channel.newPromise()
+        Channel streamChannel = streamBootstrap.open().syncUninterruptibly().getNow();
+//        streamChannel.pipeline().addLast("gremlin-encoder", gremlinRequestEncoder);
+//        streamChannel.pipeline().addLast("gremlin-decoder", gremlinResponseDecoder);
+//        streamChannel.pipeline().addLast("gremlin-handler", new Handler.GremlinResponseHandler(pending));
+
+        final ChannelPromise requestPromise = streamChannel.newPromise()
                 .addListener(f -> {
                     if (!f.isSuccess()) {
                         if (logger.isDebugEnabled())
@@ -262,7 +285,7 @@ final class Connection {
                                 new ResultSet(handler, cluster.executor(), readCompleted, requestMessage, pool.host)));
                     }
                 });
-        channel.writeAndFlush(requestMessage, requestPromise);
+        streamChannel.writeAndFlush(requestMessage, requestPromise);
 
         return requestPromise;
     }
