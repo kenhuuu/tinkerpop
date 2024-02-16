@@ -25,15 +25,11 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageDecoder;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http2.Http2DataFrame;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2HeadersFrame;
 import io.netty.handler.codec.http2.Http2StreamFrame;
 import io.netty.util.AsciiString;
-import io.netty.handler.codec.http.HttpContent;
-import io.netty.util.CharsetUtil;
 import org.apache.tinkerpop.gremlin.util.MessageSerializer;
 import org.apache.tinkerpop.gremlin.util.Tokens;
 import org.apache.tinkerpop.gremlin.util.message.ResponseMessage;
@@ -74,9 +70,9 @@ public final class HttpGremlinResponseDecoder extends MessageToMessageDecoder<Ht
         } else if (frame instanceof Http2DataFrame) {
             ByteBuf body = ((Http2DataFrame) frame).content();
             if (!hasError) {
-                for (ResponseMessage msg = serializer.deserializeResponse(content.content());
-                        msg != null;
-                        msg = serializer.deserializeResponse(Unpooled.buffer(0))) {
+                for (ResponseMessage msg = serializer.deserializeResponse(body);
+                     msg != null;
+                     msg = serializer.deserializeResponse(Unpooled.buffer(0))) {
 
                     objects.add(msg);
                 }
@@ -87,4 +83,6 @@ public final class HttpGremlinResponseDecoder extends MessageToMessageDecoder<Ht
                         .statusMessage(root.get(SerTokens.TOKEN_MESSAGE).asText())
                         .create());
             }
+        }
+    }
 }
