@@ -208,8 +208,11 @@ final class Handler {
             this.pending = pending;
         }
 
+        //Ignore this in the PoC as this channel just represents a stream
+        /*
         @Override
         public void channelInactive(final ChannelHandlerContext ctx) throws Exception {
+
             // occurs when the server shuts down in a disorderly fashion, otherwise in an orderly shutdown the server
             // should fire off a close message which will properly release the driver.
             super.channelInactive(ctx);
@@ -217,7 +220,7 @@ final class Handler {
             // the channel isn't going to get anymore results as it is closed so release all pending requests
             pending.values().forEach(val -> val.markError(new IllegalStateException("Connection to server is no longer active")));
             pending.clear();
-        }
+        }  */
 
         @Override
         protected void channelRead0(final ChannelHandlerContext channelHandlerContext, final ResponseMessage response) throws Exception {

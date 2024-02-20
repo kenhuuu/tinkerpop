@@ -159,7 +159,7 @@ public interface Channelizer extends ChannelHandler {
                 sslCtx = Optional.empty();
             }
 
-//            pipeline.addLast(new LoggingHandler("logging-handler", LogLevel.DEBUG));
+            pipeline.addLast(new LoggingHandler("logging-handler", LogLevel.DEBUG));
 
             if (sslCtx.isPresent()) {
                 final SslHandler sslHandler = sslCtx.get().newHandler(socketChannel.alloc(), connection.getUri().getHost(), connection.getUri().getPort());
@@ -175,7 +175,7 @@ public interface Channelizer extends ChannelHandler {
 //            pipeline.addLast(PIPELINE_GREMLIN_HANDLER, new Handler.GremlinResponseHandler(pending));
 
 //            HttpClientCodec httpCodec = new HttpClientCodec();
-            Http2FrameCodec http2Codec = Http2FrameCodecBuilder.forClient().initialSettings(Http2Settings.defaultSettings()).build();
+            Http2FrameCodec http2Codec = Http2FrameCodecBuilder.forClient().initialSettings(Http2Settings.defaultSettings().initialWindowSize(Short.MAX_VALUE)).build();
             Http2MultiplexHandler multiplexer = new Http2MultiplexHandler(new SimpleChannelInboundHandler() {
                 @Override
                 protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
