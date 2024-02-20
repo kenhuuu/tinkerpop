@@ -159,7 +159,7 @@ public interface Channelizer extends ChannelHandler {
                 sslCtx = Optional.empty();
             }
 
-            pipeline.addLast(new LoggingHandler("logging-handler", LogLevel.DEBUG));
+//            pipeline.addLast(new LoggingHandler("logging-handler", LogLevel.DEBUG));
 
             if (sslCtx.isPresent()) {
                 final SslHandler sslHandler = sslCtx.get().newHandler(socketChannel.alloc(), connection.getUri().getHost(), connection.getUri().getPort());

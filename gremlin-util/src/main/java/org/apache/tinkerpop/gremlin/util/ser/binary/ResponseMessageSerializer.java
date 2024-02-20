@@ -50,7 +50,7 @@ public class ResponseMessageSerializer {
             retainedBuf = Unpooled.buffer(0);
         }
 
-        if (retainedSize == RESPONSE_START_SIZE && byteBuf.readableBytes() >= 5) {
+        if (retainedSize == RESPONSE_START_SIZE && (byteBuf.readableBytes() >= 5)) {
             final int version = buffer.readByte() & 0xff;
 
             if (version >>> 7 != 1) {
@@ -62,6 +62,44 @@ public class ResponseMessageSerializer {
             retainedSize = buffer.readInt() - 5;
 
             if ((retainedBuf.readableBytes() + buffer.readableBytes()) < retainedSize) {
+                retainedBuf.writeBytes(byteBuf);
+
+                return null;
+            } else {
+
+                if (byteBuf.readableBytes() > 0) {
+                    retainedBuf.writeBytes(byteBuf);
+                }
+
+                try {
+                    final Buffer messageBuffer = bufferFactory.create(retainedBuf.readSlice(retainedSize));
+                    ResponseMessage respMsg = ResponseMessage.build(context.readValue(messageBuffer, UUID.class, true))
+                            .code(ResponseStatusCode.getFromValue(context.readValue(messageBuffer, Integer.class, false)))
+                            .statusMessage(context.readValue(messageBuffer, String.class, true))
+                            .statusAttributes(context.readValue(messageBuffer, Map.class, false))
+                            .responseMetaData(context.readValue(messageBuffer, Map.class, false))
+                            .result(context.read(messageBuffer))
+                            .create();
+
+                    retainedSize = RESPONSE_START_SIZE;
+
+                    return respMsg;
+                } catch (Exception ex) {
+                    throw new SerializationException(ex);
+                }
+            }
+        } else if (retainedSize == RESPONSE_START_SIZE && (retainedBuf.readableBytes() >= 5)) {
+            final int version = retainedBuf.readByte() & 0xff;
+
+            if (version >>> 7 != 1) {
+                // This is an indication that the response buffer was incorrectly built
+                // Or the buffer offsets are wrong
+                throw new SerializationException("The most significant bit should be set according to the format");
+            }
+
+            retainedSize = retainedBuf.readInt() - 5;
+
+            if ((retainedBuf.readableBytes() + byteBuf.readableBytes()) < retainedSize) {
                 retainedBuf.writeBytes(byteBuf);
 
                 return null;
