@@ -330,15 +330,15 @@ public class HttpGremlinEndpointHandler extends ChannelInboundHandlerAdapter {
                         HttpHandlerUtil.sendError(ctx, INTERNAL_SERVER_ERROR, requestId, String.format("Error encountered evaluating script: %s",
                                         requestMessage.getArg(Tokens.ARGS_GREMLIN))
                                 , Optional.of(t), keepAlive);
-                    promise.setFailure(t);
+//                    promise.setFailure(t);
                     return null;
                 });
 
                 evalFuture.thenAcceptAsync(r -> {
                     // now that the eval/serialization is done in the same thread - complete the promise so we can
                     // write back the HTTP response on the same thread as the original request
-                    resultHolder.set(r);
-                    promise.setSuccess();
+//                    resultHolder.set(r);
+//                    promise.setSuccess();
                 }, gremlinExecutor.getExecutorService());
             } catch (Exception ex) {
                 // send the error response here and don't rely on exception caught because it might not have the

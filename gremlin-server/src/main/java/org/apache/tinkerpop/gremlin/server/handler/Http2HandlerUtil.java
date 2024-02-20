@@ -288,4 +288,8 @@ public class Http2HandlerUtil {
 //        info.encoder.writeHeaders(info.ctx, info.streamId, headers, 0, false, info.ctx.newPromise());
 //        info.encoder.writeData(info.ctx, info.streamId, payload, 0, true, info.ctx.newPromise());
     }
+
+    static void sendHeaders(ChannelHandlerContext ctx, Http2Headers headers) {
+        ctx.writeAndFlush(new DefaultHttp2HeadersFrame(headers));
+    }
 }
