@@ -52,16 +52,16 @@ public final class HttpGremlinResponseDecoder extends MessageToMessageDecoder<Ht
 
     @Override
     protected void decode(final ChannelHandlerContext channelHandlerContext, final HttpContent content, final List<Object> objects) throws Exception {
-        if (httpResponse.status() == HttpResponseStatus.OK) {
+//        if (httpResponse.status() == HttpResponseStatus.OK) {
             for (ResponseMessage msg = serializer.deserializeResponse(content.content()); msg != null; msg = serializer.deserializeResponse(Unpooled.buffer(0))) {
-            objects.add(msg);
+                objects.add(msg);
             }
-        } else {
+/*        } else {
             final JsonNode root = mapper.readTree(new ByteBufInputStream(httpResponse.content()));
             objects.add(ResponseMessage.build(UUID.fromString(root.get(Tokens.REQUEST_ID).asText()))
                         .code(ResponseStatusCode.SERVER_ERROR)
                         .statusMessage(root.get(SerTokens.TOKEN_MESSAGE).asText())
                         .create());
-        }
+        }*/
     }
 }
