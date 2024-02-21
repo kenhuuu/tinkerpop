@@ -119,7 +119,7 @@ public class HttpChannelizer extends AbstractChannelizer {
 //        pipeline.addLast("http-user-agent-handler", new HttpUserAgentHandler());
 //        pipeline.addLast("http-gremlin-handler", http2Handler);
 //        pipeline.addLast("h2c-upgrade-handler", new HttpServerUpgradeHandler(httpCodec, new GremlinHttp2UpgradeFactory(http2Handler)));
-        pipeline.addLast("http2-server-codec", Http2FrameCodecBuilder.forServer().build());
+        pipeline.addLast("http2-server-codec", Http2FrameCodecBuilder.forServer().initialSettings(Http2Settings.defaultSettings().maxConcurrentStreams(10)).build());
         pipeline.addLast("htt2-multiplex-handler", new Http2MultiplexHandler(http2Handler));
         pipeline.addLast(new SimpleChannelInboundHandler<HttpMessage>() {
 
