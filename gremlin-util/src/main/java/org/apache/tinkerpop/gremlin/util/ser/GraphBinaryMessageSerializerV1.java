@@ -62,7 +62,7 @@ public class GraphBinaryMessageSerializerV1 extends AbstractMessageSerializer<Gr
     private GraphBinaryReader reader;
     private GraphBinaryWriter writer;
     private RequestMessageSerializer requestSerializer;
-    private ResponseMessageSerializer responseSerializer;
+    private ThreadLocal<ResponseMessageSerializer> responseSerializer = ThreadLocal.withInitial(() -> new ResponseMessageSerializer());
     private GraphBinaryMapper mapper;
 
     /**
@@ -78,7 +78,6 @@ public class GraphBinaryMessageSerializerV1 extends AbstractMessageSerializer<Gr
         mapper = new GraphBinaryMapper(writer, reader);
 
         requestSerializer = new RequestMessageSerializer();
-        responseSerializer = new ResponseMessageSerializer();
     }
 
     public GraphBinaryMessageSerializerV1(final TypeSerializerRegistry.Builder builder) {
@@ -136,7 +135,7 @@ public class GraphBinaryMessageSerializerV1 extends AbstractMessageSerializer<Gr
         writer = new GraphBinaryWriter(registry);
 
         requestSerializer = new RequestMessageSerializer();
-        responseSerializer = new ResponseMessageSerializer();
+        responseSerializer.set(new ResponseMessageSerializer());
     }
 
     @Override
@@ -152,7 +151,7 @@ public class GraphBinaryMessageSerializerV1 extends AbstractMessageSerializer<Gr
                             .result(serializeResultToString(responseMessage))
                             .statusMessage(responseMessage.getStatus().getMessage()).create();
 
-            responseSerializer.writeValue(msgToWrite, buffer, writer);
+            responseSerializer.get().writeValue(msgToWrite, buffer, writer);
         } catch (Exception ex) {
             buffer.release();
             throw ex;
@@ -182,7 +181,7 @@ public class GraphBinaryMessageSerializerV1 extends AbstractMessageSerializer<Gr
 
     @Override
     public ResponseMessage deserializeResponse(final ByteBuf msg) throws SerializationException {
-        return responseSerializer.readValue(msg, reader);
+        return responseSerializer.get().readValue(msg, reader);
     }
 
     @Override
